@@ -1,0 +1,9 @@
+site_name: ProofAgent™ Python SDK
+theme:
+  name: material
+  logo: assets/proofagent-logo.svg
+nav:
+  - Home: index.md
+  - Quickstart: quickstart.md
+  - API: api.md
+  - Examples: examples.md

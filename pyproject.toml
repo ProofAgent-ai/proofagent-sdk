@@ -1,0 +1,55 @@
+[build-system]
+requires = ["setuptools>=68.0", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "proofagent-sdk"
+dynamic = ["version"]
+description = "Official Python SDK for ProofAgent™"
+readme = "README.md"
+requires-python = ">=3.10"
+license = { file = "LICENSE" }
+authors = [{name = "ProofAgent"}]
+dependencies = [
+  "httpx>=0.27.0",
+]
+
+[project.urls]
+Homepage = "https://www.proofagent.ai"
+
+[project.scripts]
+proofagent = "proofagent.cli:main"
+
+[project.optional-dependencies]
+dev = [
+  "pytest>=8.0.0",
+  "ruff>=0.6.0",
+  "mypy>=1.10.0",
+  "build>=1.2.0",
+  "mkdocs>=1.6.0",
+  "mkdocs-material>=9.5.0",
+  "ipykernel>=6.29.0",
+]
+
+[tool.pytest.ini_options]
+pythonpath = ["src"]
+
+[tool.ruff]
+line-length = 110
+target-version = "py310"
+
+[tool.mypy]
+python_version = "3.10"
+warn_unused_ignores = true
+warn_redundant_casts = true
+strict_optional = true
+
+[tool.setuptools]
+package-dir = {"" = "src"}
+
+[tool.setuptools.dynamic]
+version = {attr = "proofagent._version.__version__"}
+
+[tool.setuptools.packages.find]
+where = ["src"]
+include = ["proofagent*"]
