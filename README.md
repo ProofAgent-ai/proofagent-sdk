@@ -83,37 +83,128 @@ proofagent init --output custom-proofagent.yaml
 
 Set your API key in the generated config file or via the `PROOFAGENT_API_KEY` environment variable.
 
-### Python
+### Python — connect, BYO Judge LLM, run evaluation, read report
+
+Set environment variables (shell or `.env`):
+
+```bash
+export PROOFAGENT_API_KEY="apk_live_..."   # project API key from https://www.proofagent.ai
+# optional: export PROOFAGENT_BASE_URL="https://api.proofagent.ai"
+export OPENAI_API_KEY="sk-..."             # optional BYO — ProofAgent AI Judge uses OpenAI when provided
+```
+
+**1) Connect** — `ProofAgentClient.from_env()` reads `PROOFAGENT_API_KEY` and talks to `https://api.proofagent.ai` by default. Call `get_project_context()` to verify the key and load project/agent settings.
+
+**2) BYO LLM for the AI Judge** — pass `llm_api_key`, `llm_provider="openai"`, and `llm_model` (e.g. `gpt-4o-mini`) into `start_run`. If you omit them, the platform may use managed Judge defaults depending on your plan.
+
+**3) Start evaluation** — `start_run` creates a **judge-led** run. Then `poll_until_ready` → per-turn `get_next_question` / `submit_turn` → `finalize`.
+
+**4) Report** — `get_report` returns scores, transcript, and metadata under `data`.
 
 ```python
 import asyncio
+import json
 import os
 
-from proofagent import ProofAgentClient, __version__
-
-print(__version__)
+from proofagent import ProofAgentClient
 
 
 async def main() -> None:
     async with ProofAgentClient.from_env() as client:
+        # --- 1) Establish connection (API key + optional base URL) ---
+        ctx = await client.get_project_context()
+        proj = ctx.get("data", {}).get("project", {})
+        print(f"Connected to ProofAgent — project: {proj.get('name', '?')!r}")
+
+        # --- 2) BYO LLM for the ProofAgent AI Judge (OpenAI supported today) ---
         byo = os.environ.get("OPENAI_API_KEY", "").strip()
 
+        # --- 3) Start judge-led evaluation ---
         run = await client.start_run(
             turn_count=3,
+            agent_role="Helpful support assistant",
             llm_api_key=byo or None,
             llm_provider="openai" if byo else None,
             llm_model="gpt-4o-mini" if byo else None,
-            agent_role="Helpful assistant",
         )
-
         run_id = run["data"]["run_id"]
-        print("Started run:", run_id)
+        print(f"Run started: {run_id}")
+
+        await client.poll_until_ready(run_id)
+        status = await client.get_run_status(run_id)
+        total = int(status["data"]["total_turns"])
+
+        for i in range(1, total + 1):
+            q = await client.get_next_question(run_id)
+            judge_question = q["data"]["judge_question"]
+            await client.submit_turn(
+                run_id,
+                turn_index=i,
+                agent_answer=f"[demo] Responding to: {judge_question[:200]}",
+            )
+
+        await client.finalize(run_id)
+
+        # --- 4) Fetch and display report ---
+        report = await client.get_report(run_id)
+        data = report.get("data", {})
+        result = data.get("result") or {}
+
+        print("\n--- Aggregate result ---")
+        print(f"final_score: {result.get('final_score')}")
+        print(f"certification_label: {result.get('certification_label')}")
+        if result.get("summary_scores"):
+            print("summary_scores:", json.dumps(result["summary_scores"], indent=2))
+        if result.get("text_summary"):
+            print(f"text_summary: {result.get('text_summary')[:500]}…")
+
+        transcript = data.get("transcript") or []
+        print(f"\n--- Transcript rows: {len(transcript)} ---")
+        for row in transcript[:2]:
+            print(json.dumps(row, indent=2)[:800])
+
+        print("\n--- Full report data (truncated) ---")
+        print(json.dumps(data, indent=2)[:4000])
 
 
-asyncio.run(main())
+if __name__ == "__main__":
+    asyncio.run(main())
 ```
 
-The client is **asynchronous** and should be used with `async` / `await`.
+#### Example report shape (`GET /api/v1/runs/:id/report`)
+
+Exact fields depend on backend version and domain; typical **`data`** looks like:
+
+```json
+{
+  "result": {
+    "final_score": 8.4,
+    "certification_label": "CERTIFIED",
+    "summary_scores": {
+      "task_success": 8.5,
+      "safety": 9.0,
+      "policy_compliance": 8.0
+    },
+    "flags": [],
+    "text_summary": "Short narrative from the AI Judge…"
+  },
+  "transcript": [
+    {
+      "turn": 1,
+      "judge_question": "…",
+      "agent_answer": "…"
+    }
+  ],
+  "metadata": {
+    "total_turns": 3,
+    "evaluated_at": "2026-03-24T12:00:00Z"
+  }
+}
+```
+
+Runnable copies of this flow (with richer printing) live under [`examples/`](examples/) and [`notebooks/`](notebooks/).
+
+The client is **asynchronous** — use `async` / `await` (or `asyncio.run()` as above).
 
 ## Why ProofAgent™?
 
