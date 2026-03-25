@@ -25,7 +25,11 @@ import sys
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).parent.resolve()))
-from report_helpers import poll_until_complete_verbose, print_full_evaluation_report  # noqa: E402
+from report_helpers import (  # noqa: E402
+    assert_project_supports_logs,
+    poll_until_complete_verbose,
+    print_full_evaluation_report,
+)
 
 from proofagent import ProofAgentClient
 
@@ -50,6 +54,7 @@ async def main() -> None:
         print(f"  turn {row['turn_index']}: user={row['user_message']!r} agent={row['agent_answer']!r}")
 
     async with ProofAgentClient.from_env() as client:
+        await assert_project_supports_logs(client)
         run = await client.start_run(
             logs=logs,
             llm_api_key=byo_llm_key or None,

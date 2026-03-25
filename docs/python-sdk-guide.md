@@ -30,6 +30,8 @@ The Python SDK wraps the REST API with an async client, retries, and polling hel
 2. **Python 3.10+**
 3. For **bring-your-own (BYO) LLM** for the Judge pipeline: **OpenAI only** is supported today (see table below).
 
+**Log-based runs (`start_run(logs=[...])`):** the API only ingests `logs` when the **project’s evaluation mode** is log-based (`log_replay`, `context_eval`, or `multi_log`). A **judge-led** project key will ignore `logs` and start an interactive judge flow—polling for `completed` then appears to hang. Use a log-based project in the dashboard (or call `assert_project_supports_logs(client)` from `examples/report_helpers.py` before `start_run` to fail fast with a clear error).
+
 ---
 
 ## BYO LLM providers (Judge & managed scoring)
@@ -194,18 +196,25 @@ async with ProofAgentClient.from_env() as client:
 ## Log-based flow
 
 ```python
+from pathlib import Path
+import sys
+sys.path.insert(0, str(Path("examples")))  # local clone: report_helpers
+from report_helpers import assert_project_supports_logs
+
 logs = [
     {"turn_index": 1, "user_message": "...", "agent_answer": "..."},
     ...
 ]
-run = await client.start_run(
-    logs=logs,
-    llm_api_key=...,
-    llm_provider="openai",
-    llm_model="gpt-4o-mini",
-)
-await client.poll_until_complete(run["data"]["run_id"])
-report = await client.get_report(run["data"]["run_id"])
+async with ProofAgentClient.from_env() as client:
+    await assert_project_supports_logs(client)
+    run = await client.start_run(
+        logs=logs,
+        llm_api_key=...,
+        llm_provider="openai",
+        llm_model="gpt-4o-mini",
+    )
+    await client.poll_until_complete(run["data"]["run_id"])
+    report = await client.get_report(run["data"]["run_id"])
 ```
 
 ---

@@ -63,6 +63,46 @@ After any install, import the client as:
 from proofagent import ProofAgentClient
 ```
 
+## ProofAgent AI Agent Judge (domain scoring)
+
+The **ProofAgent AI Agent Judge** is more than a generic LLM chat score. It combines:
+
+- **Domain scoring techniques** — rubrics and pipelines aligned to your project (tier, mode, configured metrics).
+- **Domain vertical knowledge** — evaluation context grounded in your project’s **domain** (e.g. customer support, finance, cybersecurity) so judge questions, traps, and scoring stay **relevant** to real workflows.
+- **Structured Tier 1 metrics** — every completed run can surface scores across dimensions such as:
+
+| Metric key | What it captures |
+|------------|------------------|
+| `task_success` | Completion of the intended objective |
+| `relevance` | Response appropriateness to the user and context |
+| `hallucination_factuality` | Accuracy and groundedness of claims |
+| `safety` | Harmful or unsafe content |
+| `policy_compliance` | Adherence to business / policy rules |
+| `tone_and_empathy` | Communication quality and empathy |
+| `reasoning_quality` | Logic and coherence |
+| `drift_memory_stability` | Consistency and context retention across turns |
+| `manipulation_resistance` | Resistance to prompt injection and coercion |
+| `coordination_quality` | Multi-agent coordination (when applicable) |
+| `tool_picking_quality` | Appropriate tool selection (when tools are in scope) |
+
+Exact keys and aliases in API responses may vary slightly by API version; see your run report’s `summary_scores` / `metric_evaluations`.
+
+ProofAgent’s **proprietary domain scoring layer** sits on top of whichever LLM provider you use for BYO: the Judge still applies domain rubrics and metrics regardless of provider support status below.
+
+## Supported BYO LLMs for the Judge
+
+When you pass `llm_api_key`, `llm_provider`, and `llm_model` into `start_run`, the Judge uses that model for planning, conducting, and scoring for that run (subject to your plan). Omitting BYO may fall back to **managed** Judge defaults on the platform.
+
+| LLM / provider | BYO in this SDK | Example models | Notes |
+|------------------|-----------------|----------------|-------|
+| **OpenAI** | **Supported** | `gpt-4o-mini`, `gpt-4o`, `gpt-4-turbo`, `gpt-3.5-turbo` | Use `llm_provider="openai"` and an [OpenAI API key](https://platform.openai.com/api-keys). |
+| Anthropic (Claude) | Coming soon | — | Roadmap |
+| Google (Gemini) | Coming soon | — | Roadmap |
+| Mistral | Coming soon | — | Roadmap |
+| Azure OpenAI | Coming soon | — | Roadmap |
+
+**Today, only OpenAI is supported for BYO** through the public API/SDK; additional providers are on the roadmap.
+
 ## Quick Start
 
 ### CLI
@@ -97,9 +137,9 @@ export OPENAI_API_KEY="sk-..."             # optional BYO — ProofAgent AI Judg
 
 **2) BYO LLM for the AI Judge** — pass `llm_api_key`, `llm_provider="openai"`, and `llm_model` (e.g. `gpt-4o-mini`) into `start_run`. If you omit them, the platform may use managed Judge defaults depending on your plan.
 
-**3) Client agent** — set the **role**, **tools**, and optional **internal agents** your agent exposes; for **log-based** runs, pass **`logs`** on `start_run` instead of the interactive loop.
+**3) Client agent** — set the **role**, **tools**, and optional **internal agents** your agent exposes; for **log-based** runs, pass **`logs`** on `start_run` instead of the interactive loop. The API only ingests `logs` when the **project** is in a log-based mode (`log_replay`, `context_eval`, or `multi_log`). A **judge-led** project ignores `logs` and you get an interactive run—polling for `completed` then never finishes without turns. Use a log-based project key, or call `assert_project_supports_logs(client)` from `examples/report_helpers.py` before `start_run(logs=...)`.
 
-**4) Start evaluation** — `start_run` creates a **judge-led** run (or a log-based run when `logs` is set). Then `poll_until_ready` → per-turn `get_next_question` / `submit_turn` → `finalize`.
+**4) Start evaluation** — `start_run` creates a **judge-led** run, or a **log-based** pipeline when `logs` is set **and** the project mode is log-based. Judge-led: `poll_until_ready` → per-turn `get_next_question` / `submit_turn` → `finalize`. Log-based: `poll_until_complete` (or `poll_until_complete_verbose` in examples).
 
 **5) Report** — `get_report` returns scores, transcript, and metadata under `data`. The same evaluations appear in the app at **[https://www.proofagent.ai/dashboard](https://www.proofagent.ai/dashboard)** (list of runs → open a run for the full report).
 

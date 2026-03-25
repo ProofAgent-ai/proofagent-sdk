@@ -10,6 +10,50 @@ from typing import Any
 
 from proofagent.exceptions import ProofAgentError
 
+# Must match backend LOG_BASED_MODES (see ProofAgent API / project wizard).
+LOG_BASED_PROJECT_MODES = frozenset({"log_replay", "context_eval", "multi_log"})
+
+
+async def assert_project_supports_logs(client: Any) -> dict[str, Any]:
+    """
+    Call before ``start_run(logs=[...])``.
+
+    The API only persists ``logs`` when the **project** evaluation mode is log-based
+    (e.g. ``log_replay``). If the project is ``judge_led``, logs are ignored and the run
+    behaves like judge-led (planning → plan_ready) and never reaches ``completed`` without
+    interactive turns—``poll_until_complete`` will spin until timeout.
+    """
+    ctx = await client.get_project_context()
+    data = ctx.get("data") if isinstance(ctx, dict) else None
+    proj = (data or {}).get("project") if isinstance(data, dict) else None
+    if not isinstance(proj, dict):
+        raise ProofAgentError(
+            "Could not read project from get_project_context(); cannot verify log-based mode.",
+            payload=ctx if isinstance(ctx, dict) else {},
+        )
+    mode = str(proj.get("mode") or "").strip().lower()
+    name = proj.get("name") or "(unknown)"
+    if mode not in LOG_BASED_PROJECT_MODES:
+        raise ProofAgentError(
+            "start_run(logs=[...]) requires a ProofAgent project whose evaluation mode is "
+            "log_replay, context_eval, or multi_log. "
+            f"Your project {name!r} has mode {mode!r}. "
+            "Create a log-based project in the ProofAgent dashboard and use that project's API key.",
+            payload=ctx if isinstance(ctx, dict) else {},
+        )
+    return ctx
+
+
+def _maybe_stuck_judge_led(s: str, turns_done: object, waited: float) -> bool:
+    """Heuristic: judge-led misconfiguration shows plan_ready + zero turns for a long time."""
+    if waited < 45.0:
+        return False
+    try:
+        td = int(turns_done) if turns_done is not None else 0
+    except (TypeError, ValueError):
+        td = 0
+    return td == 0 and s in ("planning", "plan_ready")
+
 
 def _report_data(report: dict[str, Any]) -> dict[str, Any]:
     """Unwrap API envelope: prefer `report['data']` when present."""
@@ -187,6 +231,15 @@ async def poll_until_complete_verbose(
             return status
         if s == "failed":
             raise ProofAgentError("Run failed", payload=status)
+        if _maybe_stuck_judge_led(s, turns_done, waited):
+            raise ProofAgentError(
+                "Run looks stuck in judge-led planning (status="
+                f"{s!r}, turns_completed=0). "
+                "For log-based evaluation, use a project with mode log_replay, context_eval, or multi_log "
+                "and call assert_project_supports_logs(client) before start_run(logs=[...]). "
+                "See examples/e2e_log_based.py and docs/python-sdk-guide.md.",
+                payload=status,
+            )
         await asyncio.sleep(poll_every_seconds)
         waited += poll_every_seconds
     raise ProofAgentError(f"Timeout waiting for run completion ({timeout_seconds}s)")
