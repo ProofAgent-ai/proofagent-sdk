@@ -282,26 +282,6 @@ For advanced configuration such as retries and timeouts, see `ProofAgentConfig`.
 
 **Runtime requirements:** Python 3.10+, **httpx** for async HTTP.
 
-## Developer commands
-
-```bash
-make install-dev
-make lint
-make test
-make build
-```
-
-## Publishing
-
-Use a PyPI API token with [twine](https://twine.readthedocs.io/). Build artifacts are generated in `dist/`.
-
-```bash
-rm -rf dist/ build/
-python -m build
-python -m twine check dist/*
-python -m twine upload dist/*
-```
-
 ## License
 
 See the [LICENSE](LICENSE) file for details.
