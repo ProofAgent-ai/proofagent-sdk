@@ -1,5 +1,7 @@
 # Quickstart
 
+**Note:** ProofAgent™ is in **beta**; only the **free tier** is offered for now. **Bring your own LLM** for the ProofAgent AI Judge (`llm_api_key` / `llm_provider` / `llm_model` in `start_run`)—Judge model usage is billed by **your** provider.
+
 ## Install
 
 **PyPI** (distribution name `proofagent-sdk`, import package `proofagent`):

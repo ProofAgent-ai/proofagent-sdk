@@ -13,6 +13,12 @@ This document describes how to use the official **`proofagent`** Python package 
 
 ---
 
+## Platform status (beta)
+
+ProofAgent™ is in **beta**. New accounts are currently limited to the **free tier**. **Judge evaluations use your own LLM provider account**—set `llm_api_key`, `llm_provider`, and `llm_model` on `start_run` so the ProofAgent AI Judge runs against models you control; **you pay your provider** for that model usage. Behavior, limits, and pricing may evolve as we exit beta.
+
+---
+
 ## What ProofAgent™ does
 
 ProofAgent™ is an **AI agent evaluation** platform. You create a **project** in the dashboard, attach configuration (domain, tier, agent role, tools), and run **evaluations**:
@@ -45,7 +51,7 @@ The Python SDK wraps the REST API with an async client, retries, and polling hel
 | Azure OpenAI | *Coming soon* | — |
 | Cohere | *Coming soon* | — |
 
-If you omit BYO `llm_api_key`, the platform may use **managed** judge defaults depending on your plan (not guaranteed for all tiers).
+During beta, **plan to supply BYO credentials** for Judge runs. Fully managed judge models may be limited; when you bring your own key, usage and cost follow **your** provider’s plan.
 
 ---
 

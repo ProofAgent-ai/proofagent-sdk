@@ -15,6 +15,10 @@ Official Python SDK for [ProofAgent™](https://www.proofagent.ai/), the AI agen
 
 This SDK is the **supported Python client** for running evaluations, retrieving reports, and integrating ProofAgent™ into production workflows.
 
+## Platform status (beta)
+
+ProofAgent™ is in **beta**. New accounts are on the **free tier** for now. **Judge evaluations use models from your own LLM provider**—pass `llm_api_key`, `llm_provider`, and `llm_model` in `start_run` so the ProofAgent AI Judge runs on your chosen account; **model usage is charged by your provider**, not bundled into the free platform tier. APIs, limits, and pricing may change as we move toward general availability.
+
 ## Links
 
 - **Website:** https://www.proofagent.ai
@@ -91,7 +95,7 @@ ProofAgent’s **proprietary domain scoring layer** sits on top of whichever LLM
 
 ## Supported BYO LLMs for the Judge
 
-When you pass `llm_api_key`, `llm_provider`, and `llm_model` into `start_run`, the Judge uses that model for planning, conducting, and scoring for that run (subject to your plan). Omitting BYO may fall back to **managed** Judge defaults on the platform.
+When you pass `llm_api_key`, `llm_provider`, and `llm_model` into `start_run`, the Judge uses that model for planning, conducting, and scoring for that run. **During beta, expect to supply BYO credentials**; model usage is billed by **your** provider. Fully managed Judge hosting may be limited while we are in beta.
 
 | LLM / provider | BYO in this SDK | Example models | Notes |
 |------------------|-----------------|----------------|-------|
@@ -130,12 +134,12 @@ Set environment variables (shell or `.env`):
 ```bash
 export PROOFAGENT_API_KEY="apk_live_..."   # project API key from https://www.proofagent.ai
 # optional: export PROOFAGENT_BASE_URL="https://api.proofagent.ai"
-export OPENAI_API_KEY="sk-..."             # optional BYO — ProofAgent AI Judge uses OpenAI when provided
+export OPENAI_API_KEY="sk-..."             # BYO — Judge uses your OpenAI account (usage billed by OpenAI)
 ```
 
 **1) Connect** — `ProofAgentClient.from_env()` reads `PROOFAGENT_API_KEY` and talks to `https://api.proofagent.ai` by default. Call `get_project_context()` to verify the key and load project/agent settings.
 
-**2) BYO LLM for the AI Judge** — pass `llm_api_key`, `llm_provider="openai"`, and `llm_model` (e.g. `gpt-4o-mini`) into `start_run`. If you omit them, the platform may use managed Judge defaults depending on your plan.
+**2) BYO LLM for the AI Judge** — pass `llm_api_key`, `llm_provider="openai"`, and `llm_model` (e.g. `gpt-4o-mini`) into `start_run`. **During beta, plan on supplying these** so Judge calls run on your provider account; usage is charged by your LLM provider.
 
 **3) Client agent** — set the **role**, **tools**, and optional **internal agents** your agent exposes; for **log-based** runs, pass **`logs`** on `start_run` instead of the interactive loop. The API only ingests `logs` when the **project** is in a log-based mode (`log_replay`, `context_eval`, or `multi_log`). A **judge-led** project ignores `logs` and you get an interactive run—polling for `completed` then never finishes without turns. Use a log-based project key, or call `assert_project_supports_logs(client)` from `examples/report_helpers.py` before `start_run(logs=...)`.
 
