@@ -220,6 +220,10 @@ Exact fields depend on backend version and domain; typical **`data`** looks like
 
 **View reports in the product:** [https://www.proofagent.ai/dashboard](https://www.proofagent.ai/dashboard)
 
+Example report:
+
+![Example evaluation report in the ProofAgent dashboard](assets/report.png)
+
 Runnable copies of this flow (with richer printing) live under [`examples/`](examples/) and [`notebooks/`](notebooks/).
 
 The client is **asynchronous** — use `async` / `await` (or `asyncio.run()` as above).
