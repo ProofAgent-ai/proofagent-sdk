@@ -97,9 +97,11 @@ export OPENAI_API_KEY="sk-..."             # optional BYO — ProofAgent AI Judg
 
 **2) BYO LLM for the AI Judge** — pass `llm_api_key`, `llm_provider="openai"`, and `llm_model` (e.g. `gpt-4o-mini`) into `start_run`. If you omit them, the platform may use managed Judge defaults depending on your plan.
 
-**3) Start evaluation** — `start_run` creates a **judge-led** run. Then `poll_until_ready` → per-turn `get_next_question` / `submit_turn` → `finalize`.
+**3) Client agent** — set the **role**, **tools**, and optional **internal agents** your agent exposes; for **log-based** runs, pass **`logs`** on `start_run` instead of the interactive loop.
 
-**4) Report** — `get_report` returns scores, transcript, and metadata under `data`.
+**4) Start evaluation** — `start_run` creates a **judge-led** run (or a log-based run when `logs` is set). Then `poll_until_ready` → per-turn `get_next_question` / `submit_turn` → `finalize`.
+
+**5) Report** — `get_report` returns scores, transcript, and metadata under `data`.
 
 ```python
 import asyncio
@@ -119,10 +121,24 @@ async def main() -> None:
         # --- 2) BYO LLM for the ProofAgent AI Judge (OpenAI supported today) ---
         byo = os.environ.get("OPENAI_API_KEY", "").strip()
 
-        # --- 3) Start judge-led evaluation ---
+        # --- 3) Client agent config (role, tools, optional internal agents; logs = log-based only) ---
+        client_agent_role = "Helpful support assistant"
+        client_tools = [
+            {"name": "policy_lookup", "description": "Retrieve policy clauses for the user"},
+            {"name": "ticket_status", "description": "Look up ticket and escalation status"},
+        ]
+        client_internal_agents = [
+            {"id": "policy_agent", "role": "policy", "description": "Policy interpretation helper"},
+        ]
+        # For log-based scoring, pass logs=[{ "turn_index", "user_message", "agent_answer" }, ...]
+        # instead of turn_count + the loop below. Judge-led runs omit `logs`.
+
+        # --- 4) Start judge-led evaluation ---
         run = await client.start_run(
             turn_count=3,
-            agent_role="Helpful support assistant",
+            agent_role=client_agent_role,
+            tools=client_tools,
+            internal_agents=client_internal_agents,
             llm_api_key=byo or None,
             llm_provider="openai" if byo else None,
             llm_model="gpt-4o-mini" if byo else None,
@@ -145,7 +161,7 @@ async def main() -> None:
 
         await client.finalize(run_id)
 
-        # --- 4) Fetch and display report ---
+        # --- 5) Fetch and display report ---
         report = await client.get_report(run_id)
         data = report.get("data", {})
         result = data.get("result") or {}
