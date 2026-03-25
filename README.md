@@ -101,7 +101,7 @@ export OPENAI_API_KEY="sk-..."             # optional BYO — ProofAgent AI Judg
 
 **4) Start evaluation** — `start_run` creates a **judge-led** run (or a log-based run when `logs` is set). Then `poll_until_ready` → per-turn `get_next_question` / `submit_turn` → `finalize`.
 
-**5) Report** — `get_report` returns scores, transcript, and metadata under `data`.
+**5) Report** — `get_report` returns scores, transcript, and metadata under `data`. The same evaluations appear in the app at **[https://www.proofagent.ai/dashboard](https://www.proofagent.ai/dashboard)** (list of runs → open a run for the full report).
 
 ```python
 import asyncio
@@ -217,6 +217,8 @@ Exact fields depend on backend version and domain; typical **`data`** looks like
   }
 }
 ```
+
+**View reports in the product:** [https://www.proofagent.ai/dashboard](https://www.proofagent.ai/dashboard)
 
 Runnable copies of this flow (with richer printing) live under [`examples/`](examples/) and [`notebooks/`](notebooks/).
 
