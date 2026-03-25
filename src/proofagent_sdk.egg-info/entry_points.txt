@@ -1,0 +1,2 @@
+[console_scripts]
+proofagent = proofagent.cli:main
