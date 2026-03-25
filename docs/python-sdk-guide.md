@@ -49,11 +49,27 @@ If you omit BYO `llm_api_key`, the platform may use **managed** judge defaults d
 
 ## Install
 
+The **PyPI package** is **`proofagent-sdk`**; you still **`import proofagent`** in Python.
+
 ```bash
-pip install proofagent
+pip install proofagent-sdk
 ```
 
-Development install from a clone:
+Install the latest `main` from GitHub without cloning:
+
+```bash
+pip install "git+https://github.com/ProofAgent-ai/proofagent-sdk.git"
+```
+
+Editable install from a local clone:
+
+```bash
+git clone https://github.com/ProofAgent-ai/proofagent-sdk.git
+cd proofagent-sdk
+pip install -e .
+```
+
+Development install with dev dependencies:
 
 ```bash
 pip install -e ".[dev]"

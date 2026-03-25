@@ -2,15 +2,27 @@
 
 ## Install
 
+**PyPI** (distribution name `proofagent-sdk`, import package `proofagent`):
+
 ```bash
-pip install proofagent
+pip install proofagent-sdk
 ```
 
-Or local:
+**GitHub** (`main` branch):
 
 ```bash
+pip install "git+https://github.com/ProofAgent-ai/proofagent-sdk.git"
+```
+
+**Local clone** (editable):
+
+```bash
+git clone https://github.com/ProofAgent-ai/proofagent-sdk.git
+cd proofagent-sdk
 pip install -e .
 ```
+
+Optional dev extras: `pip install -e ".[dev]"`.
 
 ## Configure
 

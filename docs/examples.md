@@ -1,5 +1,7 @@
 # Examples
 
+Install the SDK first: `pip install proofagent-sdk` (or `pip install "git+https://github.com/ProofAgent-ai/proofagent-sdk.git"`). Import `from proofagent import ProofAgentClient`.
+
 ## Judge-led end-to-end
 
 ```bash

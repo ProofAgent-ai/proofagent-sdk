@@ -1,6 +1,14 @@
 """
 Log-based end-to-end example (submit full conversation logs).
 
+Install the SDK::
+
+    pip install proofagent-sdk
+    pip install "git+https://github.com/ProofAgent-ai/proofagent-sdk.git"
+    # or: cd proofagent-sdk && pip install -e .
+
+Import: ``from proofagent import ProofAgentClient``.
+
 Environment:
   PROOFAGENT_API_KEY (required)
   OPENAI_API_KEY (optional BYO — this script passes OpenAI + gpt-4o-mini when set)

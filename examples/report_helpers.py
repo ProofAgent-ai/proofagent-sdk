@@ -1,4 +1,7 @@
-"""Notebook/example helpers — not part of the published `proofagent` package API."""
+"""Notebook/example helpers — not part of the published ``proofagent`` package API.
+
+Install the client with ``pip install proofagent-sdk`` (import ``from proofagent import …``).
+"""
 
 from __future__ import annotations
 

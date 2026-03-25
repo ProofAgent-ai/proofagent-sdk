@@ -2,6 +2,8 @@
 
 Production-grade async SDK for running ProofAgent™ evaluations with minimal setup.
 
+**Install:** `pip install proofagent-sdk` — import `from proofagent import ProofAgentClient`. From Git: `pip install "git+https://github.com/ProofAgent-ai/proofagent-sdk.git"`. See [README](https://github.com/ProofAgent-ai/proofagent-sdk#installation).
+
 ![ProofAgent™ Logo](assets/proofagent-logo.svg)
 
 ## Highlights

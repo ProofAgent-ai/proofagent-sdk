@@ -1,6 +1,12 @@
 """
 Judge-led end-to-end example (interactive turns).
 
+Install the SDK (import package is ``proofagent``; PyPI name is ``proofagent-sdk``)::
+
+    pip install proofagent-sdk
+    pip install "git+https://github.com/ProofAgent-ai/proofagent-sdk.git"
+    # or: cd proofagent-sdk && pip install -e .
+
 Environment:
   PROOFAGENT_API_KEY (required)
   OPENAI_API_KEY (optional BYO — this script passes OpenAI + gpt-4o-mini when set)

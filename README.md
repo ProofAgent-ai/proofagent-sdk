@@ -24,12 +24,6 @@ This SDK is the **supported Python client** for running evaluations, retrieving 
 
 ## Installation
 
-Install from PyPI:
-
-```bash
-pip install proofagent-sdk
-```
-
 **Package naming**
 
 | | |
@@ -37,10 +31,36 @@ pip install proofagent-sdk
 | **PyPI distribution** | `proofagent-sdk` |
 | **Import package** | `proofagent` |
 
-**Development install** from a local clone:
+### From PyPI (recommended)
+
+```bash
+pip install proofagent-sdk
+```
+
+### From GitHub (latest `main` without cloning)
+
+```bash
+pip install "git+https://github.com/ProofAgent-ai/proofagent-sdk.git"
+```
+
+### From a local clone (editable)
+
+```bash
+git clone https://github.com/ProofAgent-ai/proofagent-sdk.git
+cd proofagent-sdk
+pip install -e .
+```
+
+Development install with extras (lint/tests/docs):
 
 ```bash
 pip install -e ".[dev]"
+```
+
+After any install, import the client as:
+
+```python
+from proofagent import ProofAgentClient
 ```
 
 ## Quick Start
