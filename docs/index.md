@@ -12,9 +12,7 @@ Production-grade async SDK for running ProofAgent™ evaluations with minimal se
 
 - Environment-based config (`PROOFAGENT_API_KEY`, `PROOFAGENT_BASE_URL`)
 - Retry-aware HTTP client (network errors + retryable status codes)
-- End-to-end helpers:
-  - connect and inspect project/billing
-  - start run
-  - run turn loop
-  - finalize and fetch report
+- **`TestedAgent`** — JSON-first tested agent + handler or HTTP endpoint
+- **`ProofAgent`** — `evaluate_sync` / `evaluate_logs_sync` with optional `reasoning_provider` / `reasoning_model`
+- Lower-level REST helpers: `start_run`, turn loop, `finalize`, `get_report`
 - Examples and notebook included

@@ -36,7 +36,7 @@ The Python SDK wraps the REST API with an async client, retries, and polling hel
 2. **Python 3.10+**
 3. For **bring-your-own (BYO) LLM** for the Judge pipeline: **OpenAI only** is supported today (see table below).
 
-**Log-based runs (`start_run(logs=[...])`):** the API only ingests `logs` when the **project’s evaluation mode** is log-based (`log_replay`, `context_eval`, or `multi_log`). A **judge-led** project key will ignore `logs` and start an interactive judge flow—polling for `completed` then appears to hang. Use a log-based project in the dashboard (or call `assert_project_supports_logs(client)` from `examples/report_helpers.py` before `start_run` to fail fast with a clear error).
+**Log-Based Evaluation (`evaluate_logs` / `start_run(logs=[...])`):** the API only ingests `logs` when the **project’s evaluation mode** is Log-Based (`log_replay`, `context_eval`, or `multi_log`). A **Judge-Led** project key will ignore `logs` and start an interactive judge flow—polling for `completed` then appears to hang. Use a Log-Based project in the dashboard, or call **`assert_project_supports_logs(client)`** from the SDK (`from proofagent import assert_project_supports_logs`) before `start_run(logs=[...])` to fail fast with a clear error.
 
 ---
 
@@ -143,16 +143,19 @@ async with ProofAgentClient.from_env() as client:
 
 | Method | Purpose |
 |--------|---------|
+| `ProofAgent.evaluate_sync` / `evaluate` | **Judge-Led Evaluation** — JSON `TestedAgent` + handler/endpoint; optional `reasoning_*` → Judge LLM. |
+| `ProofAgent.evaluate_logs_sync` / `evaluate_logs` | **Log-Based Evaluation** — logs + metadata-only `TestedAgent`. |
+| `ProofAgentClient.evaluate` / `evaluate_logs` | Same flows on the low-level client (`llm_*` kwargs). |
 | `get_project_context()` | Project + `agent_config`, `tools_config`, `internal_agents_config` for the current API key. |
 | `get_billing()` | Plan, usage, `max_turns_per_run`, etc. |
-| `start_run(...)` | Create a run (judge-led or log-based). |
+| `start_run(...)` | Create a run (Judge-Led or Log-Based). |
 | `get_run_status(run_id)` | Status, turns, optional partial result when completed. |
-| `get_next_question(run_id)` | Next judge question (judge-led only). |
+| `get_next_question(run_id)` | Next judge question (Judge-Led only). |
 | `submit_turn(run_id, turn_index=..., agent_answer=...)` | Submit agent answer (turn index ≥ 1). |
 | `finalize(run_id)` | Trigger final scoring. |
 | `get_report(run_id)` | Full report after completion. |
 | `poll_until_ready(run_id, ...)` | Poll until run is ready for questions. |
-| `poll_until_complete(run_id, ...)` | Poll until status is `completed` (e.g. log-based). |
+| `poll_until_complete(run_id, ...)` | Poll until status is `completed` (e.g. Log-Based). |
 
 ---
 
@@ -172,56 +175,53 @@ Errors are typically HTTP 4xx/5xx with a `detail` object (or string) containing 
 
 ---
 
-## Judge-led flow (pseudo-code)
+## Judge-Led Evaluation (recommended entrypoint)
+
+JSON config + handler; **`ProofAgent`** sets Judge LLM defaults (`reasoning_*` → `llm_*`).
 
 ```python
-async with ProofAgentClient.from_env() as client:
-    run = await client.start_run(
-        turn_count=5,
-        llm_api_key=os.environ["OPENAI_API_KEY"],
-        llm_provider="openai",
-        llm_model="gpt-4o-mini",
-        agent_role="Support assistant",
-    )
-    run_id = run["data"]["run_id"]
-    await client.poll_until_ready(run_id)
-    status = await client.get_run_status(run_id)
-    total = int(status["data"]["total_turns"])
+import os
+from proofagent import ProofAgent, TestedAgent
 
-    for i in range(1, total + 1):
-        q = await client.get_next_question(run_id)
-        answer = your_agent(q["data"]["judge_question"])
-        await client.submit_turn(run_id, turn_index=i, agent_answer=answer)
+tested_agent_config = {
+    "role": "customer_support",
+    "description": "Support assistant",
+    "tools": [{"name": "lookup", "description": "..."}],
+}
 
-    await client.finalize(run_id)
-    report = await client.get_report(run_id)
+def handler(message: str) -> str:
+    return "..."
+
+your_agent = TestedAgent.from_json(tested_agent_config, handler=handler)
+pa = ProofAgent.from_env(
+    reasoning_provider="openai",
+    reasoning_model="gpt-4o-mini",
+    reasoning_api_key=os.environ.get("OPENAI_API_KEY"),
+)
+
+result = pa.evaluate_sync(your_agent=your_agent, turns=5, verbose=True)
+report = result.report
 ```
+
+Lower-level: `ProofAgentClient` + `start_run` → `poll_until_ready` → turn loop → `finalize` → `get_report`.
 
 ---
 
-## Log-based flow
+## Log-Based Evaluation
 
 ```python
-from pathlib import Path
-import sys
-sys.path.insert(0, str(Path("examples")))  # local clone: report_helpers
-from report_helpers import assert_project_supports_logs
+from proofagent import ProofAgent, TestedAgent
 
-logs = [
-    {"turn_index": 1, "user_message": "...", "agent_answer": "..."},
-    ...
-]
-async with ProofAgentClient.from_env() as client:
-    await assert_project_supports_logs(client)
-    run = await client.start_run(
-        logs=logs,
-        llm_api_key=...,
-        llm_provider="openai",
-        llm_model="gpt-4o-mini",
-    )
-    await client.poll_until_complete(run["data"]["run_id"])
-    report = await client.get_report(run["data"]["run_id"])
+logs = [{"turn_index": 1, "user_message": "...", "agent_answer": "..."}]
+
+tested_agent_config = {"role": "r", "description": "...", "tools": []}
+your_agent = TestedAgent.from_json(tested_agent_config)
+
+pa = ProofAgent.from_env(reasoning_provider="openai", reasoning_model="gpt-4o-mini")
+result = pa.evaluate_logs_sync(logs, your_agent, verbose=True)
 ```
+
+`evaluate_logs` calls `assert_project_supports_logs` before starting.
 
 ---
 
@@ -236,7 +236,7 @@ async with ProofAgentClient.from_env() as client:
 - `README.md` — install, packaging, Makefile.
 - `docs/api.md` — short API reference.
 - `docs/quickstart.md` — minimal runnable snippet.
-- `examples/e2e_judge_led.py`, `examples/e2e_log_based.py` — runnable scripts.
+- `examples/judge_led_quickstart.py`, `examples/log_based_evaluation.py` — runnable scripts.
 - `notebooks/` — Jupyter walkthroughs (including LangGraph + Judge examples).
 
 For REST details beyond the SDK, see your deployment’s API reference (e.g. `docs/api-reference.md` in the backend repository if available).

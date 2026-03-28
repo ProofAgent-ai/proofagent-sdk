@@ -7,7 +7,12 @@ src/proofagent/_version.py
 src/proofagent/cli.py
 src/proofagent/client.py
 src/proofagent/config.py
+src/proofagent/evaluation.py
 src/proofagent/exceptions.py
+src/proofagent/project_support.py
+src/proofagent/proof_agent.py
+src/proofagent/report_display.py
+src/proofagent/tested_agent.py
 src/proofagent/types.py
 src/proofagent_sdk.egg-info/PKG-INFO
 src/proofagent_sdk.egg-info/SOURCES.txt
@@ -17,3 +22,5 @@ src/proofagent_sdk.egg-info/requires.txt
 src/proofagent_sdk.egg-info/top_level.txt
 tests/test_cli.py
 tests/test_config.py
+tests/test_evaluation.py
+tests/test_project_support.py

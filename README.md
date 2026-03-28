@@ -15,9 +15,20 @@ Official Python SDK for [ProofAgent™](https://www.proofagent.ai/), the AI agen
 
 This SDK is the **supported Python client** for running evaluations, retrieving reports, and integrating ProofAgent™ into production workflows.
 
+## Evaluation modes
+
+ProofAgent supports two evaluation tiers. **Judge-Led Evaluation** is the default mental model for the SDK.
+
+| Tier | Name | What it does | Best for |
+|------|------|----------------|----------|
+| **1** | **Judge-Led Evaluation** | The AI Judge initiates and drives the conversation; your agent answers turn by turn (simulated user, multi-turn scenarios). | Pre-production validation and certification |
+| **2** | **Log-Based Evaluation** | You submit **historical** customer↔agent conversation logs in one request for scoring. | Post-production validation, regression testing, and back-testing |
+
+**In one line:** Judge-Led **simulates** interactions; Log-Based **evaluates** interactions you already recorded.
+
 ## Platform status (beta)
 
-ProofAgent™ is in **beta**. New accounts are on the **free tier** for now. **Judge evaluations use models from your own LLM provider**—pass `llm_api_key`, `llm_provider`, and `llm_model` in `start_run` so the ProofAgent AI Judge runs on your chosen account; **model usage is charged by your provider**, not bundled into the free platform tier. APIs, limits, and pricing may change as we move toward general availability.
+ProofAgent™ is in **beta**. New accounts are on the **free tier** for now. **Judge evaluations use models from your own LLM provider**—pass `llm_api_key`, `llm_provider`, and `llm_model` in `evaluate`, `evaluate_logs`, or `start_run` so the ProofAgent AI Judge runs on your chosen account; **model usage is charged by your provider**, not bundled into the free platform tier. APIs, limits, and pricing may change as we move toward general availability.
 
 ## Links
 
@@ -61,10 +72,11 @@ Development install with extras (lint/tests/docs):
 pip install -e ".[dev]"
 ```
 
-After any install, import the client as:
+After any install:
 
 ```python
-from proofagent import ProofAgentClient
+from proofagent import ProofAgent, TestedAgent  # recommended
+from proofagent import ProofAgentClient  # low-level REST client
 ```
 
 ## ProofAgent AI Agent Judge (domain scoring)
@@ -95,7 +107,7 @@ ProofAgent’s **proprietary domain scoring layer** sits on top of whichever LLM
 
 ## Supported BYO LLMs for the Judge
 
-When you pass `llm_api_key`, `llm_provider`, and `llm_model` into `start_run`, the Judge uses that model for planning, conducting, and scoring for that run. **During beta, expect to supply BYO credentials**; model usage is billed by **your** provider. Fully managed Judge hosting may be limited while we are in beta.
+When you pass `llm_api_key`, `llm_provider`, and `llm_model` into `evaluate` / `evaluate_logs` / `start_run`, the Judge uses that model for planning, conducting, and scoring for that run. **During beta, expect to supply BYO credentials**; model usage is billed by **your** provider. Fully managed Judge hosting may be limited while we are in beta.
 
 | LLM / provider | BYO in this SDK | Example models | Notes |
 |------------------|-----------------|----------------|-------|
@@ -107,128 +119,97 @@ When you pass `llm_api_key`, `llm_provider`, and `llm_model` into `start_run`, t
 
 **Today, only OpenAI is supported for BYO** through the public API/SDK; additional providers are on the roadmap.
 
-## Quick Start
+## Quick Start — Judge-Led Evaluation (default)
+
+**Mental model:** **your tested agent** (the product you ship) vs **the AI Judge** (ProofAgent’s evaluation system).
+
+1. Describe the tested agent as **JSON** (`role`, `description`, `tools`).
+2. Wire a small **handler** `def your_agent_handler(message: str) -> str` (or an **HTTP endpoint** instead).
+3. Run **`ProofAgent.evaluate_sync`** (or `evaluate` in async code).
+
+Use a **Judge-Led** project API key.
+
+```bash
+export PROOFAGENT_API_KEY="apk_live_..."
+export OPENAI_API_KEY="sk-..."   # optional BYO — reasoning/Judge LLM on your account
+```
+
+With **`verbose=True`**, you will see lines like:
+
+```text
+[ProofAgent] Starting judge-led evaluation...
+[Turn 1] AI Judge: ...
+[Turn 1] Your Agent: ...
+```
+
+```python
+from proofagent import ProofAgent, TestedAgent
+
+tested_agent_config = {
+    "role": "customer_support",
+    "description": "Helpful, policy-grounded support assistant",
+    "tools": [
+        {"name": "policy_lookup", "description": "Retrieve policy clauses"},
+        {"name": "ticket_status", "description": "Ticket and escalation status"},
+    ],
+}
+
+def your_agent_handler(message: str) -> str:
+    return "I can help with that. Let me check the policy and status."
+
+your_agent = TestedAgent.from_json(tested_agent_config, handler=your_agent_handler)
+
+pa = ProofAgent.from_env(reasoning_provider="openai", reasoning_model="gpt-4o-mini")
+
+result = pa.evaluate_sync(your_agent=your_agent, turns=3, verbose=True)
+print(result.label, result.score)
+```
+
+**Endpoint instead of a function:** `TestedAgent.from_json(tested_agent_config, endpoint="https://api.myagent.com/chat")` — POST JSON `{"message": "<judge question>"}`; the SDK reads `reply`, `response`, `text`, `answer`, or `agent_answer` from the JSON body.
+
+`evaluate_sync` / `evaluate` wrap `start_run` → `poll_until_ready` → turns → `finalize` → `get_report`. **`EvaluationResult`** exposes `run_id`, `report`, and shortcuts **`score`** / **`label`**.
+
+Reports also appear in the app: **[https://www.proofagent.ai/dashboard](https://www.proofagent.ai/dashboard)**.
+
+---
+
+## Log-Based Evaluation
+
+**Log-Based Evaluation** scores **historical** transcripts. Use a **Log-Based** project API key. Same JSON config for the tested agent; **no handler** (metadata only).
+
+```python
+from proofagent import ProofAgent, TestedAgent
+
+tested_agent_config = {
+    "role": "billing_support",
+    "description": "Billing assistant",
+    "tools": [{"name": "invoice_lookup", "description": "Find invoices"}],
+}
+
+logs = [
+    {"turn_index": 1, "user_message": "I was charged twice", "agent_answer": "Let me verify."},
+]
+
+your_agent = TestedAgent.from_json(tested_agent_config)
+pa = ProofAgent.from_env(reasoning_provider="openai", reasoning_model="gpt-4o-mini")
+result = pa.evaluate_logs_sync(logs, your_agent, verbose=True)
+print(result.label, result.score)
+```
+
+`evaluate_logs` / `evaluate_logs_sync` call **`assert_project_supports_logs`** first. See **`LOG_BASED_PROJECT_MODES`** if your key is the wrong project type.
+
+---
 
 ### CLI
-
-Create a starter config in the current directory:
 
 ```bash
 proofagent init
 ```
 
-This command prints a short welcome message and creates `proofagent.yaml`.
-
-You can optionally specify another output path:
+Creates a starter `proofagent.yaml`. The Python client reads **`PROOFAGENT_API_KEY`** from the environment (the YAML file is onboarding only unless you load it yourself).
 
 ```bash
 proofagent init --output custom-proofagent.yaml
-```
-
-Set your API key in the generated config file or via the `PROOFAGENT_API_KEY` environment variable.
-
-### Python — connect, BYO Judge LLM, run evaluation, read report
-
-Set environment variables (shell or `.env`):
-
-```bash
-export PROOFAGENT_API_KEY="apk_live_..."   # project API key from https://www.proofagent.ai
-# optional: export PROOFAGENT_BASE_URL="https://api.proofagent.ai"
-export OPENAI_API_KEY="sk-..."             # BYO — Judge uses your OpenAI account (usage billed by OpenAI)
-```
-
-**1) Connect** — `ProofAgentClient.from_env()` reads `PROOFAGENT_API_KEY` and talks to `https://api.proofagent.ai` by default. Call `get_project_context()` to verify the key and load project/agent settings.
-
-**2) BYO LLM for the AI Judge** — pass `llm_api_key`, `llm_provider="openai"`, and `llm_model` (e.g. `gpt-4o-mini`) into `start_run`. **During beta, plan on supplying these** so Judge calls run on your provider account; usage is charged by your LLM provider.
-
-**3) Client agent** — set the **role**, **tools**, and optional **internal agents** your agent exposes; for **log-based** runs, pass **`logs`** on `start_run` instead of the interactive loop. The API only ingests `logs` when the **project** is in a log-based mode (`log_replay`, `context_eval`, or `multi_log`). A **judge-led** project ignores `logs` and you get an interactive run—polling for `completed` then never finishes without turns. Use a log-based project key, or call `assert_project_supports_logs(client)` from `examples/report_helpers.py` before `start_run(logs=...)`.
-
-**4) Start evaluation** — `start_run` creates a **judge-led** run, or a **log-based** pipeline when `logs` is set **and** the project mode is log-based. Judge-led: `poll_until_ready` → per-turn `get_next_question` / `submit_turn` → `finalize`. Log-based: `poll_until_complete` (or `poll_until_complete_verbose` in examples).
-
-**5) Report** — `get_report` returns scores, transcript, and metadata under `data`. The same evaluations appear in the app at **[https://www.proofagent.ai/dashboard](https://www.proofagent.ai/dashboard)** (list of runs → open a run for the full report).
-
-```python
-import asyncio
-import json
-import os
-
-from proofagent import ProofAgentClient
-
-
-async def main() -> None:
-    async with ProofAgentClient.from_env() as client:
-        # --- 1) Establish connection (API key + optional base URL) ---
-        ctx = await client.get_project_context()
-        proj = ctx.get("data", {}).get("project", {})
-        print(f"Connected to ProofAgent — project: {proj.get('name', '?')!r}")
-
-        # --- 2) BYO LLM for the ProofAgent AI Judge (OpenAI supported today) ---
-        byo = os.environ.get("OPENAI_API_KEY", "").strip()
-
-        # --- 3) Client agent config (role, tools, optional internal agents; logs = log-based only) ---
-        client_agent_role = "Helpful support assistant"
-        client_tools = [
-            {"name": "policy_lookup", "description": "Retrieve policy clauses for the user"},
-            {"name": "ticket_status", "description": "Look up ticket and escalation status"},
-        ]
-        client_internal_agents = [
-            {"id": "policy_agent", "role": "policy", "description": "Policy interpretation helper"},
-        ]
-        # For log-based scoring, pass logs=[{ "turn_index", "user_message", "agent_answer" }, ...]
-        # instead of turn_count + the loop below. Judge-led runs omit `logs`.
-
-        # --- 4) Start judge-led evaluation ---
-        run = await client.start_run(
-            turn_count=3,
-            agent_role=client_agent_role,
-            tools=client_tools,
-            internal_agents=client_internal_agents,
-            llm_api_key=byo or None,
-            llm_provider="openai" if byo else None,
-            llm_model="gpt-4o-mini" if byo else None,
-        )
-        run_id = run["data"]["run_id"]
-        print(f"Run started: {run_id}")
-
-        await client.poll_until_ready(run_id)
-        status = await client.get_run_status(run_id)
-        total = int(status["data"]["total_turns"])
-
-        for i in range(1, total + 1):
-            q = await client.get_next_question(run_id)
-            judge_question = q["data"]["judge_question"]
-            await client.submit_turn(
-                run_id,
-                turn_index=i,
-                agent_answer=f"[demo] Responding to: {judge_question[:200]}",
-            )
-
-        await client.finalize(run_id)
-
-        # --- 5) Fetch and display report ---
-        report = await client.get_report(run_id)
-        data = report.get("data", {})
-        result = data.get("result") or {}
-
-        print("\n--- Aggregate result ---")
-        print(f"final_score: {result.get('final_score')}")
-        print(f"certification_label: {result.get('certification_label')}")
-        if result.get("summary_scores"):
-            print("summary_scores:", json.dumps(result["summary_scores"], indent=2))
-        if result.get("text_summary"):
-            print(f"text_summary: {result.get('text_summary')[:500]}…")
-
-        transcript = data.get("transcript") or []
-        print(f"\n--- Transcript rows: {len(transcript)} ---")
-        for row in transcript[:2]:
-            print(json.dumps(row, indent=2)[:800])
-
-        print("\n--- Full report data (truncated) ---")
-        print(json.dumps(data, indent=2)[:4000])
-
-
-if __name__ == "__main__":
-    asyncio.run(main())
 ```
 
 #### Example report shape (`GET /api/v1/runs/:id/report`)
@@ -268,7 +249,7 @@ Example report:
 
 ![Example evaluation report in the ProofAgent dashboard](assets/report.png)
 
-Runnable copies of this flow (with richer printing) live under [`examples/`](examples/) and [`notebooks/`](notebooks/).
+Runnable copies: [`examples/judge_led_quickstart.py`](examples/judge_led_quickstart.py), [`examples/log_based_evaluation.py`](examples/log_based_evaluation.py). Minimal notebooks are under [`notebooks/`](notebooks/) (see [`docs/examples.md`](docs/examples.md)).
 
 The client is **asynchronous** — use `async` / `await` (or `asyncio.run()` as above).
 
@@ -318,7 +299,11 @@ For advanced configuration such as retries and timeouts, see `ProofAgentConfig`.
 
 | Module | Role |
 |--------|------|
-| `client.py` | API client |
+| `proof_agent.py` | `ProofAgent` facade (`evaluate_sync`, reasoning defaults) |
+| `tested_agent.py` | `TestedAgent` (JSON + handler or endpoint) |
+| `client.py` | `ProofAgentClient` (`evaluate`, `evaluate_logs`, REST) |
+| `evaluation.py` | `EvaluationResult` (`score`, `label`) and helpers |
+| `project_support.py` | Log-Based project checks (`assert_project_supports_logs`) |
 | `config.py` | Configuration handling |
 | `exceptions.py` | SDK exceptions |
 | `types.py` | Shared SDK types |

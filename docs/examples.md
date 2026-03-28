@@ -2,35 +2,28 @@
 
 Install the SDK first: `pip install proofagent-sdk` (or `pip install "git+https://github.com/ProofAgent-ai/proofagent-sdk.git"`). Import `from proofagent import ProofAgentClient`.
 
-## Judge-led end-to-end
+## Judge-Led Evaluation
 
 ```bash
-python examples/e2e_judge_led.py
+python examples/judge_led_quickstart.py
 ```
 
-Flow:
-1. Connect to API
-2. Read project context + billing
-3. Define agent role/tools/internal agents
-4. Start run and complete turns
-5. Finalize and print score + label
+Flow: `ProofAgentClient.evaluate` → AI Judge questions → your agent answers → report.
 
-## Log-based end-to-end
+## Log-Based Evaluation
 
 ```bash
-python examples/e2e_log_based.py
+python examples/log_based_evaluation.py
 ```
 
-Flow:
-1. Provide logs
-2. Start run
-3. Wait for completion
-4. Fetch report and print result
+Flow: historical logs → `ProofAgentClient.evaluate_logs` → report. Requires a Log-Based project API key.
 
-## Notebook
+## Notebooks (minimal kickstarts)
 
-Open:
-
-`notebooks/simple_e2e.ipynb`
-
-The notebook demonstrates connect, display config, define agent context, evaluate, and display results.
+| Notebook | Purpose |
+|----------|---------|
+| `notebooks/simple_e2e.ipynb` | Local: Judge-Led, then Log-Based |
+| `notebooks/colab_judge_led.ipynb` | Colab Judge-Led |
+| `notebooks/colab_log_based.ipynb` | Colab Log-Based |
+| `notebooks/log_based_e2e.ipynb` | Local Log-Based |
+| `notebooks/langgraph_react_itops_judge.ipynb` | LangGraph + ProofAgent |

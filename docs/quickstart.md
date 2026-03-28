@@ -1,69 +1,47 @@
 # Quickstart
 
-**Note:** ProofAgent™ is in **beta**; only the **free tier** is offered for now. **Bring your own LLM** for the ProofAgent AI Judge (`llm_api_key` / `llm_provider` / `llm_model` in `start_run`)—Judge model usage is billed by **your** provider.
+**Note:** ProofAgent™ is in **beta**. **Bring your own LLM** for Judge reasoning (`ProofAgent.from_env` + `OPENAI_API_KEY`) when you set `reasoning_provider` / `reasoning_model`.
 
 ## Install
-
-**PyPI** (distribution name `proofagent-sdk`, import package `proofagent`):
 
 ```bash
 pip install proofagent-sdk
 ```
 
-**GitHub** (`main` branch):
+## Judge-Led Evaluation (default)
 
-```bash
-pip install "git+https://github.com/ProofAgent-ai/proofagent-sdk.git"
-```
-
-**Local clone** (editable):
-
-```bash
-git clone https://github.com/ProofAgent-ai/proofagent-sdk.git
-cd proofagent-sdk
-pip install -e .
-```
-
-Optional dev extras: `pip install -e ".[dev]"`.
-
-## Configure
-
-```bash
-export PROOFAGENT_API_KEY="apk_live_xxx"
-# optional; SDK defaults to https://api.proofagent.ai
-# export PROOFAGENT_BASE_URL="https://staging.example.com"
-export OPENAI_API_KEY="sk-..."  # optional BYO
-```
-
-## Minimal flow
+**Tested agent** = your product (JSON). **AI Judge** = evaluation system.
 
 ```python
-import asyncio
-from proofagent import ProofAgentClient
+from proofagent import ProofAgent, TestedAgent
 
-async def main():
-    async with ProofAgentClient.from_env() as client:
-        project = await client.get_project_context()
-        billing = await client.get_billing()
-        cap = int(billing["data"]["max_turns_per_run"])
-        default_turns = int(project["data"]["project"].get("turn_count", 5))
-        turns = min(default_turns, cap)
+tested_agent_config = {
+    "role": "customer_support",
+    "description": "Helpful support assistant",
+    "tools": [
+        {"name": "policy_lookup", "description": "Policy lookup"},
+    ],
+}
 
-        run = await client.start_run(
-            turn_count=turns,
-            agent_role="Helpful support assistant",
-            tools=[{"name": "policy_lookup", "description": "Policy reference"}],
-        )
-        run_id = run["data"]["run_id"]
-        status = await client.poll_until_ready(run_id)
+def your_agent_handler(message: str) -> str:
+    return "I can help with that."
 
-        for i in range(1, int(status["data"]["total_turns"]) + 1):
-            q = await client.get_next_question(run_id)
-            await client.submit_turn(run_id, turn_index=i, agent_answer=f"Answer: {q['data']['judge_question']}")
+your_agent = TestedAgent.from_json(tested_agent_config, handler=your_agent_handler)
+pa = ProofAgent.from_env(reasoning_provider="openai", reasoning_model="gpt-4o-mini")
 
-        await client.finalize(run_id)
-        report = await client.get_report(run_id)
-        print(report["data"]["result"]["final_score"])
-
-asyncio.run(main())
+result = pa.evaluate_sync(your_agent=your_agent, turns=3, verbose=True)
+print(result.label, result.score)
 ```
+
+Set `PROOFAGENT_API_KEY` and (for BYO) `OPENAI_API_KEY`.
+
+## Log-Based Evaluation
+
+Use a **Log-Based** project key. Same JSON; omit `handler`.
+
+```python
+your_agent = TestedAgent.from_json(tested_agent_config)
+result = pa.evaluate_logs_sync(logs, your_agent, verbose=True)
+```
+
+See [README.md](https://github.com/ProofAgent-ai/proofagent-sdk/blob/main/README.md) for details.
